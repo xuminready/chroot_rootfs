@@ -16,11 +16,11 @@ trap 'if [ $? -ne 0 ]; then echo "$0 : \"${last_command}\" command filed with ex
 
 echo "if you want to chroot to a foreign filesystem, install qemu-user-static. For Ubuntu/Debian, you can use:  apt-get install qemu qemu-user-static binfmt-support"$'\n'
 
-root_mnt=$1
+rootfs_img=$1
 arch=$2
 
-if [ -z "$root_mnt" ]; then
-	echo $'\n'usage: $0 rootfs_path [arm, aarch64, ...] $'\n'
+if [ -z "$rootfs_img" ]; then
+	echo $'\n'usage: $0 rootfs_path/*.img [arm, aarch64, ...] $'\n'
 	exit 1
 fi
 
@@ -53,7 +53,24 @@ cleanup() {
 	umount_if_exist ${root_mnt}/dev
 	sync
 
+	if [ x"${root_dev}" != x ]; then
+		umount_if_exist ${root_mnt}
+		losetup -d ${root_dev}
+	fi
 }
+
+if [ ${rootfs_img##*.} = 'img' ]; then
+	root_dev=$(losetup -Pf --show ${rootfs_img})
+	lsblk $root_dev
+	mkdir -p rootfs
+	root_mnt=rootfs
+
+	echo "${root_dev}p* <-- Enter the partition index where rootfs is located.  "
+	read num
+	mount ${root_dev}p$num rootfs
+else
+	root_mnt=$rootfs_img
+fi
 
 echo Bind mounting proc sys and pts in chroot
 mount --bind /proc ${root_mnt}/proc
